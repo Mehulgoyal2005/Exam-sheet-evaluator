@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../utils/api';
 
-const Login = () => {
+const Signup = () => {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -15,14 +18,46 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    // Frontend validation
+    if (!name.trim()) {
+      setError('Please enter your name');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      await login(email, password);
-      navigate('/');
+      // Register the account
+      const response = await api.post('/auth/register', {
+        name: name.trim(),
+        email: email.trim(),
+        password,
+      });
+
+      if (response.data.success) {
+        // Save token to localStorage and set auth state
+        // We do this manually here since register returns a token directly
+        localStorage.setItem('professorToken', response.data.token);
+
+        // Use the login flow to set user state in AuthContext
+        // Actually we call the login function directly with credentials
+        await login(email.trim(), password);
+
+        // Navigate to home page
+        navigate('/');
+      }
     } catch (err) {
       const message =
-        err.response?.data?.message || 'Login failed. Please try again.';
+        err.response?.data?.message || 'Signup failed. Please try again.';
       setError(message);
     } finally {
       setIsLoading(false);
@@ -36,22 +71,33 @@ const Login = () => {
         {/* App Title */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-indigo-600">EvalAI</h1>
-          <p className="text-gray-500 mt-1 text-sm">Professor Portal</p>
+          <p className="text-gray-500 mt-1 text-sm">Create your professor account</p>
         </div>
 
-        {/* Login Form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Signup Form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
 
-          {/* Email Field */}
+          {/* Name */}
           <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Full Name
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Dr. Rajesh Kumar"
+              required
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+            />
+          </div>
+
+          {/* Email */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Email Address
             </label>
             <input
-              id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -61,28 +107,24 @@ const Login = () => {
             />
           </div>
 
-          {/* Password Field */}
+          {/* Password */}
           <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
+            <label className="block text-sm font-medium text-gray-700 mb-1">
               Password
             </label>
             <div className="relative">
               <input
-                id="password"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
+                placeholder="At least 6 characters"
                 required
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition pr-10"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
                 {showPassword ? (
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -98,6 +140,21 @@ const Login = () => {
             </div>
           </div>
 
+          {/* Confirm Password */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Confirm Password
+            </label>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Re-enter your password"
+              required
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+            />
+          </div>
+
           {/* Error Message */}
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
@@ -109,24 +166,25 @@ const Login = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-medium py-2.5 rounded-lg transition flex items-center justify-center gap-2"
+            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-medium py-2.5 rounded-lg transition flex items-center justify-center gap-2 mt-2"
           >
             {isLoading ? (
               <>
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Logging in...
+                Creating account...
               </>
             ) : (
-              'Login'
+              'Create Account'
             )}
           </button>
+
         </form>
 
-        {/* Link to Signup */}
+        {/* Link to Login */}
         <p className="text-center text-sm text-gray-500 mt-6">
-          Don't have an account?{' '}
-          <Link to="/signup" className="text-indigo-600 hover:text-indigo-700 font-medium">
-            Create one
+          Already have an account?{' '}
+          <Link to="/login" className="text-indigo-600 hover:text-indigo-700 font-medium">
+            Sign in
           </Link>
         </p>
 
@@ -135,4 +193,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default Signup;

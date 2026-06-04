@@ -1,14 +1,78 @@
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+
+// ─── REGISTER ─────────────────────────────────────────────
+// POST /api/auth/register
+// Any professor can create an account with name, email, password
+const register = async (req, res, next) => {
+  try {
+    const { name, email, password } = req.body;
+
+    // Validate all fields are present
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide name, email, and password',
+      });
+    }
+
+    // Password must be at least 6 characters
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters',
+      });
+    }
+
+    // Check if a professor with this email already exists
+    const existingUser = await User.findByEmail(email);
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: 'An account with this email already exists',
+      });
+    }
+
+    // Hash the password before saving — never store plain text passwords
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Create the new professor account
+    const user = await User.create({
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      passwordHash,
+      role: 'professor',
+    });
+
+    // Generate JWT token so they are logged in immediately after signup
+    const token = jwt.sign(
+      { userId: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.status(201).json({
+      success: true,
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 // ─── LOGIN ────────────────────────────────────────────────
 // POST /api/auth/login
-// Public route — no auth middleware needed
 const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
-    // Basic validation — make sure both fields were sent
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -16,12 +80,8 @@ const login = async (req, res, next) => {
       });
     }
 
-    // Find the professor by email using our static method
     const user = await User.findByEmail(email);
 
-    // IMPORTANT: We return the same error message whether the email
-    // doesn't exist OR the password is wrong. This is a security practice
-    // called "not revealing whether an account exists."
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -29,7 +89,6 @@ const login = async (req, res, next) => {
       });
     }
 
-    // Compare the plain text password against the stored bcrypt hash
     const isPasswordCorrect = await user.comparePassword(password);
 
     if (!isPasswordCorrect) {
@@ -39,17 +98,12 @@ const login = async (req, res, next) => {
       });
     }
 
-    // Create JWT token
-    // Payload: data we want encoded inside the token
-    // JWT_SECRET: a long random string only the server knows, stored in .env
-    // expiresIn: '7d' means the token expires after 7 days
     const token = jwt.sign(
       { userId: user._id, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
 
-    // Return token and user info (never return passwordHash)
     res.status(200).json({
       success: true,
       token,
@@ -67,12 +121,8 @@ const login = async (req, res, next) => {
 
 // ─── GET ME ───────────────────────────────────────────────
 // GET /api/auth/me
-// Protected route — auth middleware runs first, attaches req.user
 const getMe = async (req, res, next) => {
   try {
-    // req.user is already attached by the auth middleware
-    // The auth middleware already did: .select('-passwordHash')
-    // so passwordHash is not in the object
     res.status(200).json({
       success: true,
       user: req.user,
@@ -82,4 +132,4 @@ const getMe = async (req, res, next) => {
   }
 };
 
-module.exports = { login, getMe };
+module.exports = { register, login, getMe };

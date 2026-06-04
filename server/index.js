@@ -62,7 +62,6 @@ app.use(
 );
 
 // Parse incoming JSON request bodies
-// Example: when frontend sends { email, password } on login
 app.use(express.json());
 
 // Parse URL encoded bodies
@@ -71,22 +70,21 @@ app.use(express.urlencoded({ extended: true }));
 // ─── ROUTES ──────────────────────────────────────────────
 
 const authRoutes = require('./routes/auth');
+const examRoutes = require('./routes/exams');
+
 app.use('/api/auth', authRoutes);
+app.use('/api/exams', examRoutes);
 
 // These will be uncommented as we build each module
-// const examRoutes = require('./routes/exams');
 // const questionRoutes = require('./routes/questions');
 // const submissionRoutes = require('./routes/submissions');
 // const analyticsRoutes = require('./routes/analytics');
 
-// app.use('/api/exams', examRoutes);
 // app.use('/api/exams', questionRoutes);
 // app.use('/api/exams', submissionRoutes);
 // app.use('/api/exams', analyticsRoutes);
 
 // ─── HEALTH CHECK ────────────────────────────────────────
-// A simple route to confirm the server is running
-// Visit http://localhost:5000/api/health in your browser to test
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
@@ -97,7 +95,6 @@ app.get('/api/health', (req, res) => {
 
 // ─── ERROR HANDLER ───────────────────────────────────────
 // This must be the LAST middleware registered
-// Express identifies it as error handler because it has 4 params
 app.use(errorHandler);
 
 // ─── START SERVER ────────────────────────────────────────

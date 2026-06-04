@@ -3,20 +3,11 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
+import CreateExam from './pages/CreateExam';
+import PreviousExams from './pages/PreviousExams';
 
 // ─── PLACEHOLDER PAGES ───────────────────────────────────
-// These are temporary components so the router does not crash
-// We will replace each one with the real page in later modules
-
-const CreateExam = () => (
-  <div className="min-h-screen flex items-center justify-center bg-gray-50">
-    <div className="text-center">
-      <h1 className="text-2xl font-bold text-gray-800">Create Exam</h1>
-      <p className="text-gray-500 mt-2">Module 3 will build this page</p>
-    </div>
-  </div>
-);
-
 const ExamSetup = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50">
     <div className="text-center">
@@ -53,34 +44,24 @@ const StudentReport = () => (
   </div>
 );
 
-const PreviousExams = () => (
-  <div className="min-h-screen flex items-center justify-center bg-gray-50">
-    <div className="text-center">
-      <h1 className="text-2xl font-bold text-gray-800">Previous Exams</h1>
-      <p className="text-gray-500 mt-2">Module 11 will build this page</p>
-    </div>
-  </div>
-);
-
-// ─── LOGIN ROUTE WITH REDIRECT ────────────────────────────
-// If professor is already logged in and visits /login,
-// redirect them to home instead of showing login page again
-const LoginRoute = () => {
+// ─── PUBLIC ROUTE WITH REDIRECT ───────────────────────────
+// If already logged in and visiting /login or /signup, redirect to home
+const PublicRoute = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
-
   if (isLoading) return null;
   if (isAuthenticated) return <Navigate to="/" replace />;
-  return <Login />;
+  return children;
 };
 
 // ─── APP ROUTES ───────────────────────────────────────────
 const AppRoutes = () => {
   return (
     <Routes>
-      {/* Public route */}
-      <Route path="/login" element={<LoginRoute />} />
+      {/* Public routes — redirect to home if already logged in */}
+      <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+      <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
 
-      {/* Protected routes — redirects to /login if not authenticated */}
+      {/* Protected routes */}
       <Route
         path="/"
         element={
@@ -130,15 +111,13 @@ const AppRoutes = () => {
         }
       />
 
-      {/* Catch-all — any unknown URL goes to home */}
+      {/* Catch-all */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 };
 
 // ─── ROOT APP ─────────────────────────────────────────────
-// AuthProvider must be outermost so every component can access auth state
-// BrowserRouter must wrap all Route components
 const App = () => {
   return (
     <AuthProvider>
