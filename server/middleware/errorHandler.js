@@ -1,7 +1,7 @@
 // Global error handler for Express
 // Any controller that does: next(error)
-// or throws inside async code lands here
-// Express knows this is an error handler because it has 4 parameters
+// or throws inside async code wrapped in try-catch that calls next(error) lands here
+// Express knows this is an error handler because it has 4 parameters (err, req, res, next)
 
 const errorHandler = (err, req, res, next) => {
   // Always log the full error in the terminal for debugging
@@ -13,16 +13,15 @@ const errorHandler = (err, req, res, next) => {
     const messages = Object.values(err.errors).map((e) => e.message);
     return res.status(400).json({
       success: false,
-      message: 'Validation failed',
-      errors: messages,
+      message: messages.join(', '),
     });
   }
 
   // Mongoose duplicate key error
-  // Example: trying to register with an email that already exists
+  // Example: trying to create a user with an email that already exists
   if (err.code === 11000) {
     const field = Object.keys(err.keyValue)[0];
-    return res.status(400).json({
+    return res.status(409).json({
       success: false,
       message: `${field} already exists`,
     });
@@ -36,7 +35,7 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // JWT token has expired
+  // JWT token has expired (lived past the 7 day window)
   if (err.name === 'TokenExpiredError') {
     return res.status(401).json({
       success: false,
@@ -44,7 +43,16 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Default error - use whatever status code was set, or 500
+  // Invalid MongoDB ObjectId
+  // Example: GET /api/exams/not-a-valid-id
+  if (err.name === 'CastError') {
+    return res.status(400).json({
+      success: false,
+      message: 'Resource not found. Invalid ID format.',
+    });
+  }
+
+  // Default fallback for everything else
   const statusCode = err.statusCode || 500;
   res.status(statusCode).json({
     success: false,

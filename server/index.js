@@ -69,16 +69,16 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ─── ROUTES ──────────────────────────────────────────────
-// We will uncomment these one by one as we build each module
-// For now they are commented out so the server can start
 
-// const authRoutes = require('./routes/auth');
+const authRoutes = require('./routes/auth');
+app.use('/api/auth', authRoutes);
+
+// These will be uncommented as we build each module
 // const examRoutes = require('./routes/exams');
 // const questionRoutes = require('./routes/questions');
 // const submissionRoutes = require('./routes/submissions');
 // const analyticsRoutes = require('./routes/analytics');
 
-// app.use('/api/auth', authRoutes);
 // app.use('/api/exams', examRoutes);
 // app.use('/api/exams', questionRoutes);
 // app.use('/api/exams', submissionRoutes);

@@ -1,122 +1,152 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import Login from './pages/Login';
 
-function App() {
-  const [count, setCount] = useState(0)
+// ─── PLACEHOLDER PAGES ───────────────────────────────────
+// These are temporary components so the router does not crash
+// We will replace each one with the real page in later modules
 
+const CreateExam = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="text-center">
+      <h1 className="text-2xl font-bold text-gray-800">Create Exam</h1>
+      <p className="text-gray-500 mt-2">Module 3 will build this page</p>
+    </div>
+  </div>
+);
+
+const ExamSetup = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="text-center">
+      <h1 className="text-2xl font-bold text-gray-800">Exam Setup</h1>
+      <p className="text-gray-500 mt-2">Module 5 will build this page</p>
+    </div>
+  </div>
+);
+
+const UploadSheets = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="text-center">
+      <h1 className="text-2xl font-bold text-gray-800">Upload Student Sheets</h1>
+      <p className="text-gray-500 mt-2">Module 7 will build this page</p>
+    </div>
+  </div>
+);
+
+const ExamResults = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="text-center">
+      <h1 className="text-2xl font-bold text-gray-800">Exam Results</h1>
+      <p className="text-gray-500 mt-2">Module 11 will build this page</p>
+    </div>
+  </div>
+);
+
+const StudentReport = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="text-center">
+      <h1 className="text-2xl font-bold text-gray-800">Student Report</h1>
+      <p className="text-gray-500 mt-2">Module 10 will build this page</p>
+    </div>
+  </div>
+);
+
+const PreviousExams = () => (
+  <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="text-center">
+      <h1 className="text-2xl font-bold text-gray-800">Previous Exams</h1>
+      <p className="text-gray-500 mt-2">Module 11 will build this page</p>
+    </div>
+  </div>
+);
+
+// ─── LOGIN ROUTE WITH REDIRECT ────────────────────────────
+// If professor is already logged in and visits /login,
+// redirect them to home instead of showing login page again
+const LoginRoute = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) return null;
+  if (isAuthenticated) return <Navigate to="/" replace />;
+  return <Login />;
+};
+
+// ─── APP ROUTES ───────────────────────────────────────────
+const AppRoutes = () => {
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <Routes>
+      {/* Public route */}
+      <Route path="/login" element={<LoginRoute />} />
 
-      <div className="ticks"></div>
+      {/* Protected routes — redirects to /login if not authenticated */}
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <CreateExam />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/exam/:examId/setup"
+        element={
+          <ProtectedRoute>
+            <ExamSetup />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/exam/:examId/upload"
+        element={
+          <ProtectedRoute>
+            <UploadSheets />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/exam/:examId/results"
+        element={
+          <ProtectedRoute>
+            <ExamResults />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/exam/:examId/student/:submissionId"
+        element={
+          <ProtectedRoute>
+            <StudentReport />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/previous-exams"
+        element={
+          <ProtectedRoute>
+            <PreviousExams />
+          </ProtectedRoute>
+        }
+      />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+      {/* Catch-all — any unknown URL goes to home */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+};
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
-}
+// ─── ROOT APP ─────────────────────────────────────────────
+// AuthProvider must be outermost so every component can access auth state
+// BrowserRouter must wrap all Route components
+const App = () => {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </AuthProvider>
+  );
+};
 
-export default App
+export default App;
