@@ -1,3 +1,5 @@
+// server/index.js
+
 const express = require('express');
 const http = require('http');
 const socketio = require('socket.io');
@@ -71,16 +73,21 @@ app.use(express.urlencoded({ extended: true }));
 
 const authRoutes = require('./routes/auth');
 const examRoutes = require('./routes/exams');
+const questionRoutes = require('./routes/questions');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/exams', examRoutes);
 
+// Question routes are mounted under /api/exams so they can share the :examId param
+// Example: POST /api/exams/abc123/process-papers
+// Example: POST /api/exams/abc123/questions
+// Example: GET  /api/exams/abc123/questions
+app.use('/api/exams/:examId', questionRoutes);
+
 // These will be uncommented as we build each module
-// const questionRoutes = require('./routes/questions');
 // const submissionRoutes = require('./routes/submissions');
 // const analyticsRoutes = require('./routes/analytics');
 
-// app.use('/api/exams', questionRoutes);
 // app.use('/api/exams', submissionRoutes);
 // app.use('/api/exams', analyticsRoutes);
 
