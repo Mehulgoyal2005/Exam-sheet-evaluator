@@ -1,3 +1,128 @@
+// // server/index.js
+
+// const express = require('express');
+// const http = require('http');
+// const socketio = require('socket.io');
+// const cors = require('cors');
+// const dotenv = require('dotenv');
+// const connectDB = require('./config/db');
+// const errorHandler = require('./middleware/errorHandler');
+
+// // Load environment variables from .env file
+// // This must happen before anything else
+// dotenv.config();
+
+// // Connect to MongoDB Atlas
+// connectDB();
+
+// const app = express();
+
+// // Create HTTP server from Express app
+// // We need this because Socket.io attaches to the HTTP server
+// // not directly to Express
+// const server = http.createServer(app);
+
+// // Set up Socket.io with CORS
+// // This allows our React frontend to connect for real time updates
+// const io = socketio(server, {
+//   cors: {
+//     origin: process.env.CLIENT_URL,
+//     methods: ['GET', 'POST'],
+//   },
+// });
+
+// // Make io accessible in our route controllers
+// // We attach it to the app so any controller can use it
+// // by doing: req.app.get('io')
+// app.set('io', io);
+
+// // Socket.io connection handler
+// io.on('connection', (socket) => {
+//   console.log(`⚡ Client connected: ${socket.id}`);
+
+//   // When a professor opens the upload page
+//   // they join a room named after the examId
+//   // so we only send updates to the right professor
+//   socket.on('join-exam', (examId) => {
+//     socket.join(examId);
+//     console.log(`📋 Socket ${socket.id} joined exam room: ${examId}`);
+//   });
+
+//   socket.on('disconnect', () => {
+//     console.log(`❌ Client disconnected: ${socket.id}`);
+//   });
+// });
+
+// // ─── MIDDLEWARE ───────────────────────────────────────────
+
+// // CORS - Allow requests from React frontend
+// // app.use(
+// //   cors({
+// //     origin: process.env.CLIENT_URL,
+// //     credentials: true,
+// //   })
+// // );
+// app.use(
+//   cors({
+//     origin: process.env.CLIENT_URL,
+//     credentials: true,
+//     allowedHeaders: ['Content-Type', 'Authorization'],
+//     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+//   })
+// );
+
+// // Parse incoming JSON request bodies
+// app.use(express.json());
+
+// // Parse URL encoded bodies
+// app.use(express.urlencoded({ extended: true }));
+
+// // ─── ROUTES ──────────────────────────────────────────────
+
+// const authRoutes = require('./routes/auth');
+// const examRoutes = require('./routes/exams');
+// const questionRoutes = require('./routes/questions');
+
+// app.use('/api/auth', authRoutes);
+// app.use('/api/exams', examRoutes);
+// app.use('/api/exams/:examId/questions', questionRoutes);
+
+
+// // Question routes are mounted under /api/exams so they can share the :examId param
+// // Example: POST /api/exams/abc123/process-papers
+// // Example: POST /api/exams/abc123/questions
+// // Example: GET  /api/exams/abc123/questions
+
+
+// // These will be uncommented as we build each module
+// // const submissionRoutes = require('./routes/submissions');
+// // const analyticsRoutes = require('./routes/analytics');
+
+// // app.use('/api/exams', submissionRoutes);
+// // app.use('/api/exams', analyticsRoutes);
+
+// // ─── HEALTH CHECK ────────────────────────────────────────
+// app.get('/api/health', (req, res) => {
+//   res.json({
+//     success: true,
+//     message: 'Paperly server is running ✅',
+//     timestamp: new Date().toISOString(),
+//   });
+// });
+
+// // ─── ERROR HANDLER ───────────────────────────────────────
+// // This must be the LAST middleware registered
+// app.use(errorHandler);
+
+// // ─── START SERVER ────────────────────────────────────────
+// const PORT = process.env.PORT || 5000;
+
+// server.listen(PORT, () => {
+//   console.log(`🚀 Paperly server running on port ${PORT}`);
+//   console.log(`🌍 Environment: development`);
+//   console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
+// });
+
 // server/index.js
 
 const express = require('express');
@@ -8,8 +133,7 @@ const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
 
-// Load environment variables from .env file
-// This must happen before anything else
+// Load environment variables — must happen before anything else
 dotenv.config();
 
 // Connect to MongoDB Atlas
@@ -17,13 +141,10 @@ connectDB();
 
 const app = express();
 
-// Create HTTP server from Express app
-// We need this because Socket.io attaches to the HTTP server
-// not directly to Express
+// Create HTTP server — Socket.io attaches to this, not to Express directly
 const server = http.createServer(app);
 
 // Set up Socket.io with CORS
-// This allows our React frontend to connect for real time updates
 const io = socketio(server, {
   cors: {
     origin: process.env.CLIENT_URL,
@@ -31,18 +152,15 @@ const io = socketio(server, {
   },
 });
 
-// Make io accessible in our route controllers
-// We attach it to the app so any controller can use it
-// by doing: req.app.get('io')
+// Make io accessible in controllers via req.app.get('io')
 app.set('io', io);
 
 // Socket.io connection handler
 io.on('connection', (socket) => {
   console.log(`⚡ Client connected: ${socket.id}`);
 
-  // When a professor opens the upload page
-  // they join a room named after the examId
-  // so we only send updates to the right professor
+  // Professor joins a room named after the examId when they open the upload page
+  // This ensures status updates only go to the right professor
   socket.on('join-exam', (examId) => {
     socket.join(examId);
     console.log(`📋 Socket ${socket.id} joined exam room: ${examId}`);
@@ -53,15 +171,13 @@ io.on('connection', (socket) => {
   });
 });
 
-// ─── MIDDLEWARE ───────────────────────────────────────────
+// ─── INITIALIZE EVALUATION WORKER ────────────────────────
+// Pass the io instance to the worker so it can emit socket events
+// when job status changes (processing → completed → failed)
+const { initializeWorker } = require('./workers/evaluationWorker');
+initializeWorker(io);
 
-// CORS - Allow requests from React frontend
-// app.use(
-//   cors({
-//     origin: process.env.CLIENT_URL,
-//     credentials: true,
-//   })
-// );
+// ─── MIDDLEWARE ───────────────────────────────────────────
 app.use(
   cors({
     origin: process.env.CLIENT_URL,
@@ -71,35 +187,27 @@ app.use(
   })
 );
 
-// Parse incoming JSON request bodies
 app.use(express.json());
-
-// Parse URL encoded bodies
 app.use(express.urlencoded({ extended: true }));
 
 // ─── ROUTES ──────────────────────────────────────────────
-
 const authRoutes = require('./routes/auth');
 const examRoutes = require('./routes/exams');
 const questionRoutes = require('./routes/questions');
+const submissionRoutes = require('./routes/submissions');
 
+// Auth routes — public
 app.use('/api/auth', authRoutes);
-app.use('/api/exams', examRoutes);
+
+// Question routes mounted BEFORE exam routes (Deviation 6)
+// This prevents the /:id catch-all in exams.js from swallowing question requests
 app.use('/api/exams/:examId/questions', questionRoutes);
 
+// Submission routes mounted BEFORE exam routes for the same reason
+app.use('/api/exams/:examId/submissions', submissionRoutes);
 
-// Question routes are mounted under /api/exams so they can share the :examId param
-// Example: POST /api/exams/abc123/process-papers
-// Example: POST /api/exams/abc123/questions
-// Example: GET  /api/exams/abc123/questions
-
-
-// These will be uncommented as we build each module
-// const submissionRoutes = require('./routes/submissions');
-// const analyticsRoutes = require('./routes/analytics');
-
-// app.use('/api/exams', submissionRoutes);
-// app.use('/api/exams', analyticsRoutes);
+// Exam routes — the /:id catch-all must come last
+app.use('/api/exams', examRoutes);
 
 // ─── HEALTH CHECK ────────────────────────────────────────
 app.get('/api/health', (req, res) => {
@@ -111,7 +219,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // ─── ERROR HANDLER ───────────────────────────────────────
-// This must be the LAST middleware registered
+// Must be the LAST middleware registered
 app.use(errorHandler);
 
 // ─── START SERVER ────────────────────────────────────────
@@ -122,3 +230,104 @@ server.listen(PORT, () => {
   console.log(`🌍 Environment: development`);
   console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
 });
+
+
+
+// // server/index.js
+
+// const express = require('express');
+// const http = require('http');
+// const socketio = require('socket.io');
+// const cors = require('cors');
+// const dotenv = require('dotenv');
+// const connectDB = require('./config/db');
+// const errorHandler = require('./middleware/errorHandler');
+
+// dotenv.config();
+// connectDB();
+
+// const app = express();
+// const server = http.createServer(app);
+
+// const io = socketio(server, {
+//   cors: {
+//     origin: process.env.CLIENT_URL,
+//     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+//   },
+// });
+
+// app.set('io', io);
+
+// io.on('connection', (socket) => {
+//   console.log(`⚡ Client connected: ${socket.id}`);
+
+//   socket.on('join-exam', (examId) => {
+//     socket.join(examId);
+//     console.log(`📋 Socket ${socket.id} joined exam room: ${examId}`);
+//   });
+
+//   socket.on('disconnect', () => {
+//     console.log(`❌ Client disconnected: ${socket.id}`);
+//   });
+// });
+
+// const { initializeWorker } = require('./workers/evaluationWorker');
+// initializeWorker(io);
+
+// // ─── CORS ─────────────────────────────────────────────────
+// // Define the CORS options once and reuse for both the middleware
+// // and the explicit OPTIONS preflight handler below
+// const corsOptions = {
+//   origin: process.env.CLIENT_URL,
+//   credentials: true,
+//   allowedHeaders: ['Content-Type', 'Authorization'],
+//   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+// };
+
+// // Apply CORS to every request — must be FIRST before any routes
+// app.use(cors(corsOptions));
+
+// // Explicitly handle OPTIONS preflight for ALL routes
+// // Browsers send OPTIONS before POST/PATCH/DELETE with custom headers
+// // Without this, the preflight gets a 404 instead of the CORS headers
+// app.options('*', cors(corsOptions));
+
+// // ─── BODY PARSERS ────────────────────────────────────────
+// app.use(express.json());
+// app.use(express.urlencoded({ extended: true }));
+
+// // ─── ROUTES ──────────────────────────────────────────────
+// const authRoutes = require('./routes/auth');
+// const examRoutes = require('./routes/exams');
+// const questionRoutes = require('./routes/questions');
+// const submissionRoutes = require('./routes/submissions');
+
+// app.use('/api/auth', authRoutes);
+
+// // Question and submission routes mounted BEFORE exam routes (Deviation 6)
+// app.use('/api/exams/:examId/questions', questionRoutes);
+// app.use('/api/exams/:examId/submissions', submissionRoutes);
+
+// // Exam routes last — /:id catch-all must not swallow the above routes
+// app.use('/api/exams', examRoutes);
+
+// // ─── HEALTH CHECK ────────────────────────────────────────
+// app.get('/api/health', (req, res) => {
+//   res.json({
+//     success: true,
+//     message: 'Paperly server is running ✅',
+//     timestamp: new Date().toISOString(),
+//   });
+// });
+
+// // ─── ERROR HANDLER ───────────────────────────────────────
+// app.use(errorHandler);
+
+// // ─── START SERVER ────────────────────────────────────────
+// const PORT = process.env.PORT || 5000;
+
+// server.listen(PORT, () => {
+//   console.log(`🚀 Paperly server running on port ${PORT}`);
+//   console.log(`🌍 Environment: development`);
+//   console.log(`🔗 Health check: http://localhost:${PORT}/api/health`);
+// // });

@@ -9,11 +9,11 @@
     "seed": "node scripts/seedAdmin.js"
   },
   "dependencies": {
-    "adm-zip": "^0.5.10",
+    "adm-zip": "^0.5.17",
     "archiver": "^6.0.1",
     "axios": "^1.6.7",
     "bcryptjs": "^2.4.3",
-    "bull": "^4.12.2",
+    "bull": "^4.16.5",
     "cloudinary": "^2.10.0",
     "cors": "^2.8.5",
     "docx": "^8.5.0",
@@ -25,7 +25,8 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.1.1",
     "multer": "^1.4.5-lts.1",
-    "socket.io": "^4.6.2"
+    "socket.io": "^4.6.2",
+    "streamifier": "^0.1.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.3"

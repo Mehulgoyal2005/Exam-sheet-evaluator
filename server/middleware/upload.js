@@ -4,73 +4,81 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Temp folder where uploaded files are saved before we process them
-// We use __dirname to build an absolute path — relative paths can break
-// depending on which directory Node.js is started from
 const TEMP_FOLDER = path.join(__dirname, '..', 'temp');
 
-// Create the temp folder immediately when this module is loaded
-// We do this at module load time (not inside a request handler) so the folder
-// always exists before the first upload request ever arrives
-// recursive: true means it will not throw an error if the folder already exists
+// Create temp folder at module load time so it always exists before first upload
 if (!fs.existsSync(TEMP_FOLDER)) {
   fs.mkdirSync(TEMP_FOLDER, { recursive: true });
   console.log(`📁 Created temp folder: ${TEMP_FOLDER}`);
 }
 
-// Configure where and how multer saves uploaded files
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    // cb(error, destination) — null means no error
     cb(null, TEMP_FOLDER);
   },
   filename: (req, file, cb) => {
-    // A naming collision happens when two different files have the same name
-    // and one overwrites the other. For example, two professors both uploading
-    // "question-paper.pdf" at the same time would collide without this prefix.
-    // Prepending Date.now() (milliseconds since 1970) makes every filename unique.
+    // Prepend timestamp to avoid filename collisions between concurrent uploads
     const uniqueFilename = `${Date.now()}-${file.originalname}`;
     cb(null, uniqueFilename);
   },
 });
 
-// File filter — only accept PDF files
-// If a professor accidentally uploads a Word doc or image, we reject it here
-// with a clear error message instead of letting it fail silently later
-const fileFilter = (req, file, cb) => {
-  if (file.mimetype === 'application/pdf') {
-    cb(null, true); // Accept the file
+// File filter for PDF only — used by uploadSingle and uploadDouble
+const pdfOnlyFilter = (req, file, cb) => {
+  const isPdf = file.mimetype === 'application/pdf' ||
+    file.originalname.toLowerCase().endsWith('.pdf');
+  if (isPdf) {
+    cb(null, true);
   } else {
-    cb(new Error('Only PDF files are allowed'), false); // Reject the file
+    cb(new Error('Only PDF files are allowed'), false);
   }
 };
 
-// Base multer configuration shared by all three variants below
-const multerConfig = multer({
+// File filter for PDF and ZIP — used by uploadMultiple
+// Students may upload individual PDFs or a ZIP containing PDFs
+// We accept both here and sort them out in the controller
+const pdfAndZipFilter = (req, file, cb) => {
+  const name = file.originalname.toLowerCase();
+  const mime = file.mimetype;
+
+  const isPdf = mime === 'application/pdf' || name.endsWith('.pdf');
+  const isZip =
+    mime === 'application/zip' ||
+    mime === 'application/x-zip-compressed' ||
+    mime === 'application/octet-stream' ||
+    name.endsWith('.zip');
+
+  if (isPdf || isZip) {
+    cb(null, true);
+  } else {
+    // Skip silently instead of throwing — don't let one bad file block the rest
+    cb(null, false);
+  }
+};
+
+// For single PDF uploads
+const uploadSingle = multer({
   storage,
-  fileFilter,
-  limits: {
-    // 50MB limit — large scanned PDFs can be big but anything over 50MB
-    // is almost certainly an error (wrong file type or uncompressed scan)
-    fileSize: 50 * 1024 * 1024,
-  },
-});
+  fileFilter: pdfOnlyFilter,
+  limits: { fileSize: 50 * 1024 * 1024 },
+}).single('file');
 
-// For uploading a single file with field name 'file'
-// Used when sending one PDF to the OCR service or similar single-file scenarios
-const uploadSingle = multerConfig.single('file');
-
-// For uploading two files with different field names simultaneously
-// 'questionPaper' and 'modelAnswer' are the form field names the frontend must use
-// This is the one used in this module (Module 5)
-const uploadDouble = multerConfig.fields([
+// For two PDFs with different field names (question paper + model answer)
+const uploadDouble = multer({
+  storage,
+  fileFilter: pdfOnlyFilter,
+  limits: { fileSize: 50 * 1024 * 1024 },
+}).fields([
   { name: 'questionPaper', maxCount: 1 },
   { name: 'modelAnswer', maxCount: 1 },
 ]);
 
-// For uploading multiple student answer sheets at once
-// Accepts up to 100 PDFs under the field name 'sheets'
-// This will be used in Module 7 when the professor uploads student answer sheets
-const uploadMultiple = multerConfig.array('sheets', 100);
+// For multiple student answer sheets — accepts up to 100 PDFs or one ZIP
+// Uses pdfAndZipFilter so ZIP files are accepted too
+const uploadMultiple = multer({
+  storage,
+  fileFilter: pdfAndZipFilter,
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB limit for ZIP files
+}).array('sheets', 100);
 
 module.exports = { uploadSingle, uploadDouble, uploadMultiple };

@@ -9,17 +9,10 @@ import Signup from './pages/Signup';
 import CreateExam from './pages/CreateExam';
 import PreviousExams from './pages/PreviousExams';
 import ExamSetup from './pages/ExamSetup';
+import UploadSheets from './pages/UploadSheets';
 
 // ─── PLACEHOLDER PAGES ───────────────────────────────────
-const UploadSheets = () => (
-  <div className="min-h-screen flex items-center justify-center bg-gray-50">
-    <div className="text-center">
-      <h1 className="text-2xl font-bold text-gray-800">Upload Student Sheets</h1>
-      <p className="text-gray-500 mt-2">Module 7 will build this page</p>
-    </div>
-  </div>
-);
-
+// These will be replaced in their respective modules
 const ExamResults = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50">
     <div className="text-center">
