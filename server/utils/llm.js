@@ -11,15 +11,8 @@ const groq = new Groq({
 /**
  * Sends extracted text from both PDFs to the LLM and gets back a structured
  * array of questions with their answers, marks, and difficulty scheme.
- *
- * @param {string} questionPaperText - OCR-extracted text from the question paper PDF
- * @param {string} modelAnswerText - OCR-extracted text from the model answer sheet PDF
- * @param {string} defaultScheme - 'easy' | 'medium' | 'difficult' — used when LLM cannot determine scheme
- * @returns {Promise<Array>} - Array of { questionNumber, questionText, modelAnswer, marks, scheme }
  */
 const extractQuestionsFromText = async (questionPaperText, modelAnswerText, defaultScheme) => {
-  // Build the prompt — this is the instruction we send to the LLM
-  // The more specific and structured the prompt, the more reliable the output
   const prompt = `You are an expert at analyzing exam documents. You will be given text extracted from a question paper and a model answer sheet. Your job is to map each question to its correct answer.
 
 QUESTION PAPER TEXT:
@@ -55,16 +48,11 @@ JSON FORMAT:
   try {
     const completion = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
-      // temperature controls how creative/random the LLM's output is
-      // 0.0 = fully deterministic and consistent, 1.0 = highly creative and varied
-      // We use 0.1 (very low) because we need consistent structured JSON output —
-      // higher temperature would make the LLM more likely to deviate from the format
       temperature: 0.1,
       max_tokens: 4000,
       messages: [
         {
           role: 'system',
-          // System message sets the LLM's persona and hard constraints
           content: 'You are a precise exam document analyzer. Always respond with valid JSON only. Never add explanatory text before or after the JSON.',
         },
         {
@@ -76,36 +64,30 @@ JSON FORMAT:
 
     const responseText = completion.choices[0].message.content.trim();
 
-    // Attempt 1: Try parsing the response directly as JSON
-    // This works when the LLM behaves perfectly and returns raw JSON
+    // Attempt 1: direct parse
     try {
       const parsed = JSON.parse(responseText);
       return validateAndReturnQuestions(parsed);
     } catch (directParseError) {
-      // Direct parse failed — the LLM probably added some text around the JSON
+      // continue to attempt 2
     }
 
-    // Attempt 2: Use regex to find the JSON array within the response text
-    // This handles cases like: "Here is the result: [...]" or "[...]\nDone!"
-    // The regex looks for content that starts with [ and ends with ]
-    // We use a greedy match to capture the outermost array
+    // Attempt 2: regex to find JSON array
     const jsonMatch = responseText.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
       try {
         const parsed = JSON.parse(jsonMatch[0]);
         return validateAndReturnQuestions(parsed);
       } catch (regexParseError) {
-        // Regex found something array-shaped but it was not valid JSON
+        // continue to throw
       }
     }
 
-    // Both attempts failed — throw with the raw response so we can debug
     throw new Error(
       `LLM returned malformed JSON. Raw response was:\n${responseText.substring(0, 500)}`
     );
 
   } catch (error) {
-    // Re-throw with context so the controller can show a meaningful error
     if (error.message.includes('LLM returned malformed JSON')) {
       throw error;
     }
@@ -115,18 +97,14 @@ JSON FORMAT:
 
 /**
  * Validates that the parsed LLM response is a proper array of questions.
- * Throws a descriptive error if the structure is wrong.
  */
 const validateAndReturnQuestions = (parsed) => {
   if (!Array.isArray(parsed)) {
     throw new Error('LLM response is not an array');
   }
-
   if (parsed.length === 0) {
     throw new Error('LLM returned an empty array — no questions were extracted');
   }
-
-  // Validate each question has the required fields
   parsed.forEach((q, index) => {
     if (!q.questionNumber && q.questionNumber !== 0) {
       throw new Error(`Question at index ${index} is missing questionNumber`);
@@ -144,21 +122,12 @@ const validateAndReturnQuestions = (parsed) => {
       throw new Error(`Question ${q.questionNumber} is missing scheme`);
     }
   });
-
   return parsed;
 };
 
 /**
  * Evaluates one student answer against the model answer using the LLM.
- * Called once per question per student in the evaluation worker (Module 8).
- *
- * @param {string} questionText - The question text
- * @param {string} modelAnswer - The correct answer
- * @param {string} studentAnswerText - What the student wrote (may be empty)
- * @param {number} marks - Maximum marks for this question
- * @param {string} scheme - 'easy' | 'medium' | 'difficult'
- * @param {string} customPrompt - Professor's special instructions for the whole exam
- * @returns {Promise<{ marksAwarded, correctParts, wrongParts, feedback }>}
+ * Called once per question per student in the evaluation worker.
  */
 const evaluateStudentAnswer = async (
   questionText,
@@ -218,15 +187,13 @@ Return this exact JSON format:
 
     const responseText = completion.choices[0].message.content.trim();
 
-    // Try direct parse first
     try {
       const parsed = JSON.parse(responseText);
       return sanitizeEvaluation(parsed, marks);
     } catch (e) {
-      // Try extracting JSON object from text
+      // continue
     }
 
-    // Try finding JSON object in response
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
@@ -244,8 +211,7 @@ Return this exact JSON format:
 };
 
 /**
- * Ensures the evaluation result has valid values within acceptable ranges.
- * Protects against the LLM returning marks above the maximum or negative marks.
+ * Ensures evaluation result has valid values within acceptable ranges.
  */
 const sanitizeEvaluation = (evaluation, maxMarks) => {
   return {
@@ -256,4 +222,100 @@ const sanitizeEvaluation = (evaluation, maxMarks) => {
   };
 };
 
-module.exports = { extractQuestionsFromText, evaluateStudentAnswer };
+// ─── NEW FUNCTION: mapAnswersToQuestions ──────────────────
+/**
+ * Takes raw OCR text from a student's answer sheet and maps each portion
+ * of text to the question it answers.
+ *
+ * The LLM reads the full OCR text and figures out which part of the text
+ * corresponds to which question number. This is necessary because OCR gives
+ * us one big blob of text — we need it split by question.
+ *
+ * @param {string} rawOcrText - Full extracted text from student's answer sheet
+ * @param {Array} questions - Array of { questionNumber, questionText } objects
+ * @returns {Promise<Object>} - e.g. { "1": "student answer for Q1", "2": "..." }
+ */
+const mapAnswersToQuestions = async (rawOcrText, questions) => {
+  // Build a numbered list of questions so the LLM knows what to look for
+  const questionList = questions
+    .map((q) => `Question ${q.questionNumber}: ${q.questionText}`)
+    .join('\n');
+
+  const prompt = `You are analyzing a student's handwritten exam answer sheet. The text below was extracted via OCR from the answer sheet.
+
+QUESTIONS IN THIS EXAM:
+${questionList}
+
+RAW OCR TEXT FROM STUDENT'S ANSWER SHEET:
+${rawOcrText}
+
+TASK:
+Identify which part of the OCR text answers each question. Students typically write the question number before their answer (e.g. "Q1", "1.", "Ans 1", "Answer 1" etc).
+
+Return ONLY a valid JSON object mapping question numbers as string keys to the student's answer text as string values.
+If you cannot find an answer for a question, return an empty string for that key.
+Do not include any explanation — return ONLY the JSON object.
+
+REQUIRED FORMAT:
+{
+  "1": "student's full answer text for question 1 here",
+  "2": "student's full answer text for question 2 here"
+}`;
+
+  try {
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      temperature: 0.1,
+      max_tokens: 3000,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a precise exam answer extractor. Always respond with valid JSON only. Never add text before or after the JSON.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+    });
+
+    const responseText = completion.choices[0].message.content.trim();
+
+    // Attempt 1: direct parse
+    try {
+      return JSON.parse(responseText);
+    } catch (e) {
+      // continue
+    }
+
+    // Attempt 2: extract JSON object from response
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+
+    // If LLM fails completely, return empty strings for all questions
+    // so evaluation can continue — student just gets 0 for all questions
+    console.warn('⚠️  mapAnswersToQuestions: LLM returned malformed JSON, defaulting to empty answers');
+    const fallback = {};
+    questions.forEach((q) => {
+      fallback[String(q.questionNumber)] = '';
+    });
+    return fallback;
+
+  } catch (error) {
+    // On API error, return empty answers rather than failing the whole evaluation
+    console.error(`❌ mapAnswersToQuestions failed: ${error.message}`);
+    const fallback = {};
+    questions.forEach((q) => {
+      fallback[String(q.questionNumber)] = '';
+    });
+    return fallback;
+  }
+};
+
+module.exports = {
+  extractQuestionsFromText,
+  evaluateStudentAnswer,
+  mapAnswersToQuestions,
+};
