@@ -1,3 +1,6 @@
+
+
+
 const mongoose = require('mongoose');
 
 // This schema defines the structure of every exam document in MongoDB Atlas
@@ -32,16 +35,6 @@ const examSchema = new mongoose.Schema({
     type: Number,
     required: [true, 'Total marks is required'],
     min: [1, 'Total marks must be at least 1'],
-  },
-
-  // defaultScheme controls how strictly the LLM evaluates answers for this exam
-  // easy   → award marks if meaning is similar, generous interpretation
-  // medium → key concepts must be present, some strictness
-  // difficult → answer must closely match model answer, strict keyword matching
-  defaultScheme: {
-    type: String,
-    enum: ['easy', 'medium', 'difficult'],
-    default: 'medium',
   },
 
   // These two URLs are null when exam is first created

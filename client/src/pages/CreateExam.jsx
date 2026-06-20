@@ -1,3 +1,6 @@
+
+
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PlusCircle, X, Loader2 } from 'lucide-react';
@@ -17,7 +20,6 @@ const CreateExam = () => {
     subject: '',
     date: '',
     totalMarks: '',
-    defaultScheme: 'medium',
   });
 
   // Tracks loading state while the API call is in flight
@@ -47,7 +49,6 @@ const CreateExam = () => {
       subject: '',
       date: '',
       totalMarks: '',
-      defaultScheme: 'medium',
     });
     setError('');
     setFieldErrors({});
@@ -81,7 +82,6 @@ const CreateExam = () => {
         subject: formData.subject,
         date: formData.date,
         totalMarks: Number(formData.totalMarks),
-        defaultScheme: formData.defaultScheme,
       });
 
       if (response.data.success) {
@@ -242,26 +242,6 @@ const CreateExam = () => {
                   )}
                 </div>
 
-              </div>
-
-              {/* Default Marking Scheme */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Default Marking Scheme
-                </label>
-                <select
-                  name="defaultScheme"
-                  value={formData.defaultScheme}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition bg-white"
-                >
-                  <option value="easy">Easy — Award marks for similar meaning</option>
-                  <option value="medium">Medium — Key concepts must be present</option>
-                  <option value="difficult">Difficult — Must closely match model answer</option>
-                </select>
-                <p className="text-gray-400 text-xs mt-1">
-                  You can override this per question in the next step.
-                </p>
               </div>
 
               {/* API Error */}

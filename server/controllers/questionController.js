@@ -1,3 +1,4 @@
+
 // server/controllers/questionController.js
 
 const fs = require('fs');
@@ -113,12 +114,14 @@ const processPapers = async (req, res, next) => {
     await exam.save();
 
     // ── Step 7: Send both OCR texts to Groq LLM ───────────────────────────
+    // The LLM now decides each question's difficulty scheme on its own,
+    // based on the question's content/complexity — there is no professor-set
+    // default to pass in anymore.
     console.log('🤖 Sending to Groq LLM for question mapping...');
 
     const extractedQuestions = await extractQuestionsFromText(
       qpOcrResult.extractedText,
-      maOcrResult.extractedText,
-      exam.defaultScheme
+      maOcrResult.extractedText
     );
 
     console.log(`✅ LLM extracted ${extractedQuestions.length} questions`);
