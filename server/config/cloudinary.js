@@ -11,6 +11,19 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+// ─── TEMPORARY DIAGNOSTIC — remove after debugging ────────────────────────────
+// Prints exactly what the deployed server loaded for the Cloudinary credentials.
+// JSON.stringify wraps values in quotes so hidden trailing spaces become visible,
+// e.g. "969954595113548 " instead of 969954595113548. The API_KEY should be
+// exactly 15 characters. The secret value itself is never printed — only its length.
+console.log('─── Cloudinary config check ───');
+console.log('CLOUD_NAME:', JSON.stringify(process.env.CLOUDINARY_CLOUD_NAME));
+console.log('API_KEY:', JSON.stringify(process.env.CLOUDINARY_API_KEY));
+console.log('API_KEY length:', process.env.CLOUDINARY_API_KEY ? process.env.CLOUDINARY_API_KEY.length : 'MISSING');
+console.log('API_SECRET length:', process.env.CLOUDINARY_API_SECRET ? process.env.CLOUDINARY_API_SECRET.length : 'MISSING');
+console.log('───────────────────────────────');
+// ──────────────────────────────────────────────────────────────────────────────
+
 /**
  * Uploads a local file to Cloudinary and returns its permanent URL.
  *
