@@ -8,6 +8,8 @@
 
 [![Live Demo](https://img.shields.io/badge/Live_Demo-Vercel-000000?style=for-the-badge&logo=vercel)](https://exam-sheet-evaluator.vercel.app)
 [![GitHub](https://img.shields.io/badge/Source-GitHub-181717?style=for-the-badge&logo=github)](https://github.com/Mehulgoyal2005/Exam-sheet-evaluator)
+[![Backend](https://img.shields.io/badge/Backend-Render-46E3B7?style=for-the-badge&logo=render)](https://paperly-backend-l4xc.onrender.com/api/health/)
+[![OCR Service](https://img.shields.io/badge/OCR_Service-Render-46E3B7?style=for-the-badge&logo=render)](https://paperly-ocr.onrender.com/health)
 
 ![React](https://img.shields.io/badge/React-20232A?style=flat&logo=react&logoColor=61DAFB)
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat&logo=node.js&logoColor=white)
