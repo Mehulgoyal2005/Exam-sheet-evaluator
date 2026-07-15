@@ -193,7 +193,7 @@ app.get('/api/health', (req, res) => {
 app.use(errorHandler);
 
 // ─── START SERVER ────────────────────────────────────────
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 server.listen(PORT, () => {
   console.log(`🚀 Paperly server running on port ${PORT}`);
