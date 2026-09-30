@@ -10,6 +10,10 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
+// Model used for all LLM calls. Override with GROQ_MODEL in .env when Groq
+// retires a model (see console.groq.com/docs/models for current IDs).
+const GROQ_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
+
 /**
  * Sends extracted text from both PDFs to the LLM and gets back a structured
  * array of questions with their answers, marks, and difficulty scheme.
@@ -53,7 +57,7 @@ JSON FORMAT:
 
   try {
     const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: GROQ_MODEL,
       temperature: 0.1,
       max_tokens: 4000,
       messages: [
@@ -176,7 +180,7 @@ Return this exact JSON format:
 
   try {
     const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: GROQ_MODEL,
       temperature: 0.1,
       max_tokens: 500,
       messages: [
@@ -270,7 +274,7 @@ REQUIRED FORMAT:
 
   try {
     const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: GROQ_MODEL,
       temperature: 0.1,
       max_tokens: 3000,
       messages: [
