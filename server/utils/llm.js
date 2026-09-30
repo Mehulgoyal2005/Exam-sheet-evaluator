@@ -14,6 +14,12 @@ const groq = new Groq({
 // retires a model (see console.groq.com/docs/models for current IDs).
 const GROQ_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
 
+// gpt-oss models "think" before answering and those reasoning tokens count
+// against max_tokens, so keep reasoning short and leave room for the JSON.
+const IS_REASONING_MODEL = GROQ_MODEL.startsWith('openai/gpt-oss');
+const REASONING_OPTIONS = IS_REASONING_MODEL ? { reasoning_effort: 'low' } : {};
+const tokenLimit = (n) => (IS_REASONING_MODEL ? n + 2000 : n);
+
 /**
  * Sends extracted text from both PDFs to the LLM and gets back a structured
  * array of questions with their answers, marks, and difficulty scheme.
@@ -59,7 +65,8 @@ JSON FORMAT:
     const completion = await groq.chat.completions.create({
       model: GROQ_MODEL,
       temperature: 0.1,
-      max_tokens: 4000,
+      max_tokens: tokenLimit(4000),
+      ...REASONING_OPTIONS,
       messages: [
         {
           role: 'system',
@@ -72,7 +79,7 @@ JSON FORMAT:
       ],
     });
 
-    const responseText = completion.choices[0].message.content.trim();
+    const responseText = (completion.choices[0].message.content || '').trim();
 
     // Attempt 1: direct parse
     try {
@@ -182,7 +189,8 @@ Return this exact JSON format:
     const completion = await groq.chat.completions.create({
       model: GROQ_MODEL,
       temperature: 0.1,
-      max_tokens: 500,
+      max_tokens: tokenLimit(500),
+      ...REASONING_OPTIONS,
       messages: [
         {
           role: 'system',
@@ -195,7 +203,7 @@ Return this exact JSON format:
       ],
     });
 
-    const responseText = completion.choices[0].message.content.trim();
+    const responseText = (completion.choices[0].message.content || '').trim();
 
     try {
       const parsed = JSON.parse(responseText);
@@ -276,7 +284,8 @@ REQUIRED FORMAT:
     const completion = await groq.chat.completions.create({
       model: GROQ_MODEL,
       temperature: 0.1,
-      max_tokens: 3000,
+      max_tokens: tokenLimit(3000),
+      ...REASONING_OPTIONS,
       messages: [
         {
           role: 'system',
@@ -289,7 +298,7 @@ REQUIRED FORMAT:
       ],
     });
 
-    const responseText = completion.choices[0].message.content.trim();
+    const responseText = (completion.choices[0].message.content || '').trim();
 
     // Attempt 1: direct parse
     try {
@@ -411,7 +420,7 @@ module.exports = {
 //       ],
 //     });
 
-//     const responseText = completion.choices[0].message.content.trim();
+//     const responseText = (completion.choices[0].message.content || '').trim();
 
 //     // Attempt 1: direct parse — expect { "questions": [...] }
 //     try {
@@ -546,7 +555,7 @@ module.exports = {
 //       ],
 //     });
 
-//     const responseText = completion.choices[0].message.content.trim();
+//     const responseText = (completion.choices[0].message.content || '').trim();
 
 //     try {
 //       const parsed = JSON.parse(responseText);
@@ -641,7 +650,7 @@ module.exports = {
 //       ],
 //     });
 
-//     const responseText = completion.choices[0].message.content.trim();
+//     const responseText = (completion.choices[0].message.content || '').trim();
 
 //     // Attempt 1: direct parse
 //     try {
