@@ -10,15 +10,65 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
-// Model used for all LLM calls. Override with GROQ_MODEL in .env when Groq
-// retires a model (see console.groq.com/docs/models for current IDs).
-const GROQ_MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-120b';
+// Models to try, in order. GROQ_MODEL (from .env) is tried first. If Groq says
+// a model doesn't exist or is blocked for this account, the next one is tried.
+// See console.groq.com/docs/models for current IDs.
+const MODEL_CANDIDATES = [
+  process.env.GROQ_MODEL,
+  'llama-3.1-8b-instant',
+  'meta-llama/llama-4-scout-17b-16e-instruct',
+  'meta-llama/llama-4-maverick-17b-128e-instruct',
+  'openai/gpt-oss-20b',
+  'openai/gpt-oss-120b',
+  'llama-3.3-70b-versatile',
+].filter((m, i, list) => m && list.indexOf(m) === i);
+
+// Remembers the first model that worked so later calls go straight to it
+let workingModel = null;
 
 // gpt-oss models "think" before answering and those reasoning tokens count
 // against max_tokens, so keep reasoning short and leave room for the JSON.
-const IS_REASONING_MODEL = GROQ_MODEL.startsWith('openai/gpt-oss');
-const REASONING_OPTIONS = IS_REASONING_MODEL ? { reasoning_effort: 'low' } : {};
-const tokenLimit = (n) => (IS_REASONING_MODEL ? n + 2000 : n);
+const optionsForModel = (model, maxTokens) =>
+  model.startsWith('openai/gpt-oss')
+    ? { max_tokens: maxTokens + 2000, reasoning_effort: 'low' }
+    : { max_tokens: maxTokens };
+
+// Errors that mean "this model isn't usable for this account" — try the next one
+const isModelUnavailable = (error) =>
+  ['model_not_found', 'model_permission_blocked_org', 'model_decommissioned'].includes(
+    error?.error?.error?.code
+  ) || /model_not_found|model_permission_blocked|decommissioned/.test(error?.message || '');
+
+/**
+ * Calls Groq chat completions, falling back through MODEL_CANDIDATES when a
+ * model is unavailable. Any other error (rate limit, bad key, etc.) is thrown.
+ */
+async function createCompletion({ maxTokens, ...params }) {
+  const models = workingModel
+    ? [workingModel, ...MODEL_CANDIDATES.filter((m) => m !== workingModel)]
+    : MODEL_CANDIDATES;
+
+  let lastError;
+  for (const model of models) {
+    try {
+      const completion = await groq.chat.completions.create({
+        model,
+        ...params,
+        ...optionsForModel(model, maxTokens),
+      });
+      if (workingModel !== model) {
+        console.log(`🤖 Using Groq model: ${model}`);
+        workingModel = model;
+      }
+      return completion;
+    } catch (error) {
+      if (!isModelUnavailable(error)) throw error;
+      console.warn(`⚠️ Groq model ${model} unavailable, trying next: ${error.message}`);
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
 
 /**
  * Sends extracted text from both PDFs to the LLM and gets back a structured
@@ -62,11 +112,9 @@ JSON FORMAT:
 ]`;
 
   try {
-    const completion = await groq.chat.completions.create({
-      model: GROQ_MODEL,
+    const completion = await createCompletion({
       temperature: 0.1,
-      max_tokens: tokenLimit(4000),
-      ...REASONING_OPTIONS,
+      maxTokens: 4000,
       messages: [
         {
           role: 'system',
@@ -186,11 +234,9 @@ Return this exact JSON format:
 }`;
 
   try {
-    const completion = await groq.chat.completions.create({
-      model: GROQ_MODEL,
+    const completion = await createCompletion({
       temperature: 0.1,
-      max_tokens: tokenLimit(500),
-      ...REASONING_OPTIONS,
+      maxTokens: 500,
       messages: [
         {
           role: 'system',
@@ -281,11 +327,9 @@ REQUIRED FORMAT:
 }`;
 
   try {
-    const completion = await groq.chat.completions.create({
-      model: GROQ_MODEL,
+    const completion = await createCompletion({
       temperature: 0.1,
-      max_tokens: tokenLimit(3000),
-      ...REASONING_OPTIONS,
+      maxTokens: 3000,
       messages: [
         {
           role: 'system',
